@@ -90,4 +90,5 @@ db.sqlite3
 media/
 .gitattributes
 .idea
+venv/
 new_venv/
