@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Event, Speaker, Question
+from .models import Event, Speaker, Question, NewSpeaker
 
 @admin.register(Event)
 class EventAdmin(admin.ModelAdmin):
@@ -18,3 +18,9 @@ class QuestionAdmin(admin.ModelAdmin):
     list_display = ('speaker', 'question', 'answer', 'created_on', 'updated_on')
     search_fields = ('speaker__full_name', 'question', 'answer')
     list_filter = ('created_on', 'updated_on')
+
+@admin.register(NewSpeaker)
+class NewSpeakerAdmin(admin.ModelAdmin):
+    list_display = ('full_name', 'topic', 'phone_number', 'telegram_id', 'created_on')
+    search_fields = ('full_name', 'topic')
+    list_filter = ('created_on',)
