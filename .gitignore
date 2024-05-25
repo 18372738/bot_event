@@ -90,4 +90,4 @@ db.sqlite3
 media/
 .gitattributes
 .idea
-.DS_Store
+new_venv/
