@@ -1,10 +1,13 @@
 import os
 import django
+import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, CallbackContext
 from django.utils import timezone
 from dotenv import load_dotenv
+import time
 
+# Загрузка переменных окружения из .env файла
 load_dotenv()
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'event.settings')
@@ -16,16 +19,19 @@ TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 
 current_speaker = None
 
+# Настройка логирования
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def start(update: Update, context: CallbackContext) -> None:
     keyboard = [
         [InlineKeyboardButton("Слушатель", callback_data='listener')],
         [InlineKeyboardButton("Спикер", callback_data='speaker')],
-        [InlineKeyboardButton("Организатор", url='http://127.0.0.1:8000/admin')]  # Обнови URL на свой
+        [InlineKeyboardButton("Организатор", url='http://127.0.0.1:8000/admin')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text('Привет! Выберите свою роль:', reply_markup=reply_markup)
-
 
 def role_handler(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
@@ -49,17 +55,13 @@ def role_handler(update: Update, context: CallbackContext) -> None:
                 [InlineKeyboardButton("Закончить выступление", callback_data='end_presentation')],
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
-            query.message.reply_text(f'Добро пожаловать, {speaker.full_name}! Выберите действие:',
-                                     reply_markup=reply_markup)
+            query.message.reply_text(f'Добро пожаловать, {speaker.full_name}! Выберите действие:', reply_markup=reply_markup)
         else:
             keyboard = [
                 [InlineKeyboardButton("Хочу выступить", callback_data='new_speaker')],
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
-            query.message.reply_text(
-                'Ваш ID не зарегистрирован как спикер. Пожалуйста, свяжитесь с организатором или подайте заявку:',
-                reply_markup=reply_markup)
-
+            query.message.reply_text('Ваш ID не зарегистрирован как спикер. Пожалуйста, свяжитесь с организатором или подайте заявку:', reply_markup=reply_markup)
 
 def listener_handler(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
@@ -72,7 +74,6 @@ def listener_handler(update: Update, context: CallbackContext) -> None:
         events = Event.objects.all()
         schedule = "\n".join([f"{event.title} - {event.start_at.strftime('%Y-%m-%d %H:%M')}" for event in events])
         query.message.reply_text(f'Программа мероприятия:\n{schedule}')
-
 
 def speaker_handler(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
@@ -98,13 +99,11 @@ def speaker_handler(update: Update, context: CallbackContext) -> None:
             current_speaker = None
             query.message.reply_text(f'{speaker.full_name}, вы закончили своё выступление.')
 
-
 def new_speaker_handler(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     query.answer()
     query.message.reply_text('Пожалуйста, введите ваше ФИО:')
     context.user_data['awaiting_full_name'] = True
-
 
 def handle_message(update: Update, context: CallbackContext) -> None:
     global current_speaker
@@ -140,22 +139,25 @@ def handle_message(update: Update, context: CallbackContext) -> None:
         update.message.reply_text('Спасибо за вашу заявку. Организатор свяжется с вами.')
         context.user_data['awaiting_phone_number'] = False
 
+# Создание экземпляра Updater
+updater = Updater(TELEGRAM_BOT_TOKEN, use_context=True, workers=8, request_kwargs={'read_timeout': 20, 'connect_timeout': 20})
+dispatcher = updater.dispatcher
 
-def main() -> None:
-    updater = Updater(TELEGRAM_BOT_TOKEN, use_context=True, workers=8)
-    dispatcher = updater.dispatcher
+def run_bot() -> None:
+    while True:
+        try:
+            dispatcher.add_handler(CommandHandler("start", start))
+            dispatcher.add_handler(CallbackQueryHandler(role_handler, pattern='^(listener|speaker)$'))
+            dispatcher.add_handler(CallbackQueryHandler(listener_handler, pattern='^(ask_question|show_schedule)$'))
+            dispatcher.add_handler(CallbackQueryHandler(speaker_handler, pattern='^(view_questions|start_presentation|end_presentation)$'))
+            dispatcher.add_handler(CallbackQueryHandler(new_speaker_handler, pattern='^new_speaker$'))
+            dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
 
-    dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(CallbackQueryHandler(role_handler, pattern='^(listener|speaker)$'))
-    dispatcher.add_handler(CallbackQueryHandler(listener_handler, pattern='^(ask_question|show_schedule)$'))
-    dispatcher.add_handler(
-        CallbackQueryHandler(speaker_handler, pattern='^(view_questions|start_presentation|end_presentation)$'))
-    dispatcher.add_handler(CallbackQueryHandler(new_speaker_handler, pattern='^new_speaker$'))
-    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
-
-    updater.start_polling()
-    updater.idle()
-
+            updater.start_polling()
+            updater.idle()
+        except Exception as e:
+            logger.error(f"Error: {e}. Restarting bot in 5 seconds...")
+            time.sleep(5)
 
 if __name__ == '__main__':
-    main()
+    run_bot()
