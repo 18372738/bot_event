@@ -10,7 +10,7 @@ load_dotenv()
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'event.settings')
 django.setup()
 
-from event_models.models import Event, Speaker, Question
+from event_models.models import Event, Speaker, Question, NewSpeaker
 
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 
@@ -48,35 +48,20 @@ def role_handler(update: Update, context: CallbackContext) -> None:
             query.message.reply_text(f'Добро пожаловать, {speaker.full_name}! Выберите действие:',
                                      reply_markup=reply_markup)
         else:
-            query.message.reply_text('Ваш ID не зарегистрирован как спикер. Пожалуйста, свяжитесь с организатором.')
+            keyboard = [
+                [InlineKeyboardButton("Хочу выступить", callback_data='new_speaker')],
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            query.message.reply_text(
+                'Ваш ID не зарегистрирован как спикер. Пожалуйста, свяжитесь с организатором или подайте заявку:',
+                reply_markup=reply_markup)
 
 
-def listener_handler(update: Update, context: CallbackContext) -> None:
+def new_speaker_handler(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     query.answer()
-
-    if query.data == 'ask_question':
-        query.message.reply_text('Введите ваш вопрос:')
-        context.user_data['awaiting_question'] = True
-    elif query.data == 'show_schedule':
-        events = Event.objects.all()
-        schedule = "\n".join([f"{event.title} - {event.start_at.strftime('%Y-%m-%d %H:%M')}" for event in events])
-        query.message.reply_text(f'Программа мероприятия:\n{schedule}')
-
-
-def speaker_handler(update: Update, context: CallbackContext) -> None:
-    query = update.callback_query
-    query.answer()
-    speaker_id = update.effective_user.id
-    speaker = Speaker.objects.filter(telegram_id=speaker_id).first()
-
-    if query.data == 'view_questions' and speaker:
-        questions = Question.objects.filter(speaker=speaker)
-        if questions.exists():
-            question_list = "\n".join([f"{q.question}" for q in questions])
-            query.message.reply_text(f'Ваши вопросы:\n{question_list}')
-        else:
-            query.message.reply_text('У вас пока нет вопросов.')
+    query.message.reply_text('Пожалуйста, введите ваше ФИО:')
+    context.user_data['awaiting_full_name'] = True
 
 
 def handle_message(update: Update, context: CallbackContext) -> None:
@@ -90,20 +75,30 @@ def handle_message(update: Update, context: CallbackContext) -> None:
             update.message.reply_text(f'Ваш вопрос отправлен спикеру {current_speaker.full_name}.')
         context.user_data['awaiting_question'] = False
 
+    elif context.user_data.get('awaiting_full_name'):
+        context.user_data['full_name'] = update.message.text
+        update.message.reply_text('Введите тему доклада:')
+        context.user_data['awaiting_topic'] = True
+        context.user_data['awaiting_full_name'] = False
+
+    elif context.user_data.get('awaiting_topic'):
+        context.user_data['topic'] = update.message.text
+        update.message.reply_text('Введите номер телефона:')
+        context.user_data['awaiting_phone_number'] = True
+        context.user_data['awaiting_topic'] = False
+
+    elif context.user_data.get('awaiting_phone_number'):
+        context.user_data['phone_number'] = update.message.text
+        full_name = context.user_data['full_name']
+        topic = context.user_data['topic']
+        phone_number = context.user_data['phone_number']
+        telegram_id = update.effective_user.id
+
+        NewSpeaker.objects.create(full_name=full_name, topic=topic, phone_number=phone_number, telegram_id=telegram_id)
+        update.message.reply_text('Спасибо за вашу заявку. Организатор свяжется с вами.')
+        context.user_data['awaiting_phone_number'] = False
+
 
 def main() -> None:
     updater = Updater(TELEGRAM_BOT_TOKEN)
-    dispatcher = updater.dispatcher
-
-    dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(CallbackQueryHandler(role_handler, pattern='^(listener|speaker)$'))
-    dispatcher.add_handler(CallbackQueryHandler(listener_handler, pattern='^(ask_question|show_schedule)$'))
-    dispatcher.add_handler(CallbackQueryHandler(speaker_handler, pattern='^view_questions$'))
-    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
-
-    updater.start_polling()
-    updater.idle()
-
-
-if __name__ == '__main__':
-    main()
+    dispatcher = updater.dispatch
