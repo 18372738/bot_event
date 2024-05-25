@@ -1,8 +1,20 @@
 from django.contrib import admin
-from .models import Speaker, Event, Question
+from .models import Event, Speaker, Question
 
+@admin.register(Event)
+class EventAdmin(admin.ModelAdmin):
+    list_display = ('title', 'start_at', 'end_at', 'created_at', 'updated_at')
+    search_fields = ('title',)
+    list_filter = ('start_at', 'end_at')
 
+@admin.register(Speaker)
+class SpeakerAdmin(admin.ModelAdmin):
+    list_display = ('full_name', 'topic', 'start_at', 'end_at', 'created_at', 'updated_at', 'telegram_id')
+    search_fields = ('full_name', 'topic')
+    list_filter = ('start_at', 'end_at')
 
-admin.site.register(Speaker)
-admin.site.register(Event)
-admin.site.register(Question)
+@admin.register(Question)
+class QuestionAdmin(admin.ModelAdmin):
+    list_display = ('speaker', 'question', 'answer', 'created_at', 'updated_at')
+    search_fields = ('speaker__full_name', 'question', 'answer')
+    list_filter = ('created_at', 'updated_at')
