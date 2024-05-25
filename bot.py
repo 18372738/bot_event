@@ -142,7 +142,7 @@ def handle_message(update: Update, context: CallbackContext) -> None:
 
 
 def main() -> None:
-    updater = Updater(TELEGRAM_BOT_TOKEN)
+    updater = Updater(TELEGRAM_BOT_TOKEN, use_context=True, workers=8)
     dispatcher = updater.dispatcher
 
     dispatcher.add_handler(CommandHandler("start", start))
