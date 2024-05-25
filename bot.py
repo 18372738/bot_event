@@ -14,6 +14,8 @@ from event_models.models import Event, Speaker, Question, NewSpeaker
 
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 
+current_speaker = None
+
 
 def start(update: Update, context: CallbackContext) -> None:
     keyboard = [
@@ -43,6 +45,8 @@ def role_handler(update: Update, context: CallbackContext) -> None:
         if speaker:
             keyboard = [
                 [InlineKeyboardButton("Посмотреть вопросы", callback_data='view_questions')],
+                [InlineKeyboardButton("Начать выступление", callback_data='start_presentation')],
+                [InlineKeyboardButton("Закончить выступление", callback_data='end_presentation')],
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             query.message.reply_text(f'Добро пожаловать, {speaker.full_name}! Выберите действие:',
@@ -73,6 +77,7 @@ def listener_handler(update: Update, context: CallbackContext) -> None:
 def speaker_handler(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     query.answer()
+    global current_speaker
     speaker_id = update.effective_user.id
     speaker = Speaker.objects.filter(telegram_id=speaker_id).first()
 
@@ -84,6 +89,15 @@ def speaker_handler(update: Update, context: CallbackContext) -> None:
         else:
             query.message.reply_text('У вас пока нет вопросов.')
 
+    elif query.data == 'start_presentation' and speaker:
+        current_speaker = speaker
+        query.message.reply_text(f'{speaker.full_name}, вы начали своё выступление.')
+
+    elif query.data == 'end_presentation' and speaker:
+        if current_speaker == speaker:
+            current_speaker = None
+            query.message.reply_text(f'{speaker.full_name}, вы закончили своё выступление.')
+
 
 def new_speaker_handler(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
@@ -93,9 +107,9 @@ def new_speaker_handler(update: Update, context: CallbackContext) -> None:
 
 
 def handle_message(update: Update, context: CallbackContext) -> None:
+    global current_speaker
     if context.user_data.get('awaiting_question'):
         question_text = update.message.text
-        current_speaker = Speaker.objects.filter(start_at__lte=timezone.now(), end_at__gte=timezone.now()).first()
         if not current_speaker:
             update.message.reply_text('Сейчас нет активного выступления.')
         else:
@@ -134,7 +148,8 @@ def main() -> None:
     dispatcher.add_handler(CommandHandler("start", start))
     dispatcher.add_handler(CallbackQueryHandler(role_handler, pattern='^(listener|speaker)$'))
     dispatcher.add_handler(CallbackQueryHandler(listener_handler, pattern='^(ask_question|show_schedule)$'))
-    dispatcher.add_handler(CallbackQueryHandler(speaker_handler, pattern='^view_questions$'))
+    dispatcher.add_handler(
+        CallbackQueryHandler(speaker_handler, pattern='^(view_questions|start_presentation|end_presentation)$'))
     dispatcher.add_handler(CallbackQueryHandler(new_speaker_handler, pattern='^new_speaker$'))
     dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
 
