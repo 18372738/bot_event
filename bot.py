@@ -57,6 +57,34 @@ def role_handler(update: Update, context: CallbackContext) -> None:
                 reply_markup=reply_markup)
 
 
+def listener_handler(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    query.answer()
+
+    if query.data == 'ask_question':
+        query.message.reply_text('Введите ваш вопрос:')
+        context.user_data['awaiting_question'] = True
+    elif query.data == 'show_schedule':
+        events = Event.objects.all()
+        schedule = "\n".join([f"{event.title} - {event.start_at.strftime('%Y-%m-%d %H:%M')}" for event in events])
+        query.message.reply_text(f'Программа мероприятия:\n{schedule}')
+
+
+def speaker_handler(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    query.answer()
+    speaker_id = update.effective_user.id
+    speaker = Speaker.objects.filter(telegram_id=speaker_id).first()
+
+    if query.data == 'view_questions' and speaker:
+        questions = Question.objects.filter(speaker=speaker)
+        if questions.exists():
+            question_list = "\n".join([f"{q.question}" for q in questions])
+            query.message.reply_text(f'Ваши вопросы:\n{question_list}')
+        else:
+            query.message.reply_text('У вас пока нет вопросов.')
+
+
 def new_speaker_handler(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     query.answer()
@@ -101,4 +129,18 @@ def handle_message(update: Update, context: CallbackContext) -> None:
 
 def main() -> None:
     updater = Updater(TELEGRAM_BOT_TOKEN)
-    dispatcher = updater.dispatch
+    dispatcher = updater.dispatcher
+
+    dispatcher.add_handler(CommandHandler("start", start))
+    dispatcher.add_handler(CallbackQueryHandler(role_handler, pattern='^(listener|speaker)$'))
+    dispatcher.add_handler(CallbackQueryHandler(listener_handler, pattern='^(ask_question|show_schedule)$'))
+    dispatcher.add_handler(CallbackQueryHandler(speaker_handler, pattern='^view_questions$'))
+    dispatcher.add_handler(CallbackQueryHandler(new_speaker_handler, pattern='^new_speaker$'))
+    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
+
+    updater.start_polling()
+    updater.idle()
+
+
+if __name__ == '__main__':
+    main()
