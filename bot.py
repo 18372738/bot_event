@@ -5,7 +5,6 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, CallbackContext
 from django.utils import timezone
 from dotenv import load_dotenv
-import time
 
 # Загрузка переменных окружения из .env файла
 load_dotenv()
@@ -72,7 +71,7 @@ def listener_handler(update: Update, context: CallbackContext) -> None:
         context.user_data['awaiting_question'] = True
     elif query.data == 'show_schedule':
         events = Event.objects.all()
-        schedule = "\n".join([f"{event.title} - {event.start_at.strftime('%Y-%m-%d %H:%M')}" for event in events])
+        schedule = "\n".join([f"{event.title} - {event.start_at.strftime('%Y-%м-%d %H:%M')}" for event in events])
         query.message.reply_text(f'Программа мероприятия:\n{schedule}')
 
 def speaker_handler(update: Update, context: CallbackContext) -> None:
@@ -139,25 +138,19 @@ def handle_message(update: Update, context: CallbackContext) -> None:
         update.message.reply_text('Спасибо за вашу заявку. Организатор свяжется с вами.')
         context.user_data['awaiting_phone_number'] = False
 
-# Создание экземпляра Updater
-updater = Updater(TELEGRAM_BOT_TOKEN, use_context=True, workers=8, request_kwargs={'read_timeout': 20, 'connect_timeout': 20})
-dispatcher = updater.dispatcher
+def main() -> None:
+    updater = Updater(TELEGRAM_BOT_TOKEN, use_context=True, workers=8, request_kwargs={'read_timeout': 20, 'connect_timeout': 20})
+    dispatcher = updater.dispatcher
 
-def run_bot() -> None:
-    while True:
-        try:
-            dispatcher.add_handler(CommandHandler("start", start))
-            dispatcher.add_handler(CallbackQueryHandler(role_handler, pattern='^(listener|speaker)$'))
-            dispatcher.add_handler(CallbackQueryHandler(listener_handler, pattern='^(ask_question|show_schedule)$'))
-            dispatcher.add_handler(CallbackQueryHandler(speaker_handler, pattern='^(view_questions|start_presentation|end_presentation)$'))
-            dispatcher.add_handler(CallbackQueryHandler(new_speaker_handler, pattern='^new_speaker$'))
-            dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
+    dispatcher.add_handler(CommandHandler("start", start))
+    dispatcher.add_handler(CallbackQueryHandler(role_handler, pattern='^(listener|speaker)$'))
+    dispatcher.add_handler(CallbackQueryHandler(listener_handler, pattern='^(ask_question|show_schedule)$'))
+    dispatcher.add_handler(CallbackQueryHandler(speaker_handler, pattern='^(view_questions|start_presentation|end_presentation)$'))
+    dispatcher.add_handler(CallbackQueryHandler(new_speaker_handler, pattern='^new_speaker$'))
+    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
 
-            updater.start_polling()
-            updater.idle()
-        except Exception as e:
-            logger.error(f"Error: {e}. Restarting bot in 5 seconds...")
-            time.sleep(5)
+    updater.start_polling()
+    updater.idle()
 
 if __name__ == '__main__':
-    run_bot()
+    main()
