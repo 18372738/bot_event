@@ -37,3 +37,14 @@ class Question(models.Model):
 
     def __str__(self):
         return f"Question to {self.speaker.full_name}"
+
+class NewSpeaker(models.Model):
+    """Заявка на спикера"""
+    full_name = models.CharField("ФИО", max_length=200)
+    topic = models.CharField("Тема доклада", max_length=200)
+    phone_number = models.CharField("Номер телефона", max_length=20, null=True, blank=True)
+    telegram_id = models.CharField("Telegram ID", max_length=50)
+    created_on = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.full_name
