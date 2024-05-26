@@ -10,6 +10,7 @@ class Speaker(models.Model):
     created_on = models.DateTimeField(auto_now_add=True)
     updated_on = models.DateTimeField(auto_now=True)
     telegram_id = models.CharField("Telegram ID", max_length=50, null=True, blank=True)
+    is_active = models.BooleanField("Активен", default=False)
 
     def __str__(self):
         return self.full_name

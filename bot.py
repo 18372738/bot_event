@@ -145,10 +145,14 @@ class TelegramBot:
             query.message.reply_text('У вас пока нет вопросов.')
 
     def start_presentation(self, query, speaker) -> None:
+        speaker.is_active = True
+        speaker.save()
         self.current_speaker = speaker
         query.message.reply_text(f'{speaker.full_name}, вы начали своё выступление.')
 
     def end_presentation(self, query, speaker) -> None:
+        speaker.is_active = False
+        speaker.save()
         if self.current_speaker == speaker:
             self.current_speaker = None
             query.message.reply_text(f'{speaker.full_name}, вы закончили своё выступление.')
