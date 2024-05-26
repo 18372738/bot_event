@@ -49,3 +49,13 @@ class NewSpeaker(models.Model):
 
     def __str__(self):
         return self.full_name
+
+from django.db import models
+
+class Listener(models.Model):
+    """Слушатель"""
+    telegram_id = models.CharField("Telegram ID", max_length=50, unique=True)
+    registered_on = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Listener {self.telegram_id}"

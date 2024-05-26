@@ -15,7 +15,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'event.settings')
 
 django.setup()
 
-from event_models.models import Event, Speaker, Question, NewSpeaker
+from event_models.models import Event, Speaker, Question, NewSpeaker, Listener
 
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 
@@ -47,7 +47,12 @@ class TelegramBot:
         self.scheduler.start()
 
     def start(self, update: Update, context: CallbackContext) -> None:
+        self.save_listener(update.effective_user.id)
         self.show_main_menu(update.message)
+
+    def save_listener(self, telegram_id: str) -> None:
+        if not Listener.objects.filter(telegram_id=telegram_id).exists():
+            Listener.objects.create(telegram_id=telegram_id)
 
     def show_main_menu(self, message) -> None:
         keyboard = [
