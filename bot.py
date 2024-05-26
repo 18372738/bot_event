@@ -82,15 +82,22 @@ class TelegramBot:
         speaker_id = query.from_user.id
         speaker = Speaker.objects.filter(telegram_id=speaker_id).first()
         if speaker:
-            keyboard = [
-                [InlineKeyboardButton("Посмотреть вопросы", callback_data='view_questions')],
-                [InlineKeyboardButton("Программа мероприятия", callback_data='show_schedule')],
-                [InlineKeyboardButton("Начать выступление", callback_data='start_presentation')],
-                [InlineKeyboardButton("Закончить выступление", callback_data='end_presentation')],
-                [InlineKeyboardButton("Главное меню", callback_data='main_menu')]
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            query.message.reply_text(f'Добро пожаловать, {speaker.full_name}! Выберите действие:', reply_markup=reply_markup)
+            current_event = Event.objects.filter(start_at__date=timezone.now().date(), speakers=speaker).first()
+            now = timezone.now()
+            if current_event:
+                keyboard = [
+                    [InlineKeyboardButton("Посмотреть вопросы", callback_data='view_questions')],
+                    [InlineKeyboardButton("Программа мероприятия", callback_data='show_schedule')],
+                    [InlineKeyboardButton("Главное меню", callback_data='main_menu')]
+                ]
+                if now >= speaker.start_at:
+                    keyboard.append([InlineKeyboardButton("Начать выступление", callback_data='start_presentation')])
+                if speaker.is_active:
+                    keyboard.append([InlineKeyboardButton("Закончить выступление", callback_data='end_presentation')])
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                query.message.reply_text(f'Добро пожаловать, {speaker.full_name}! Выберите действие:', reply_markup=reply_markup)
+            else:
+                query.message.reply_text('Вы не зарегистрированы на текущее мероприятие.')
         else:
             keyboard = [
                 [InlineKeyboardButton("Хочу выступить", callback_data='new_speaker')],
@@ -175,10 +182,11 @@ class TelegramBot:
 
     def process_question(self, update: Update, context: CallbackContext) -> None:
         question_text = update.message.text
-        if not self.current_speaker:
+        active_speaker = Speaker.objects.filter(is_active=True).first()
+        if not active_speaker:
             update.message.reply_text('Сейчас нет активного выступления.')
         else:
-            Question.objects.create(speaker=self.current_speaker, question=question_text, approved=False)
+            Question.objects.create(speaker=active_speaker, question=question_text, approved=False)
             update.message.reply_text(f'Ваш вопрос отправлен спикеру.')
         context.user_data['awaiting_question'] = False
 
