@@ -6,7 +6,6 @@ from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageH
 from django.utils import timezone
 from dotenv import load_dotenv
 
-# Загрузка переменных окружения из .env файла
 load_dotenv()
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'event.settings')
@@ -18,7 +17,8 @@ TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 
 class TelegramBot:
     def __init__(self):
-        self.updater = Updater(TELEGRAM_BOT_TOKEN, use_context=True, workers=8, request_kwargs={'read_timeout': 20, 'connect_timeout': 20})
+        self.updater = Updater(TELEGRAM_BOT_TOKEN, use_context=True, workers=8,
+                               request_kwargs={'read_timeout': 20, 'connect_timeout': 20})
         self.dispatcher = self.updater.dispatcher
         self.current_speaker = None
 
@@ -28,10 +28,14 @@ class TelegramBot:
 
         # Register handlers
         self.dispatcher.add_handler(CommandHandler("start", self.start))
-        self.dispatcher.add_handler(CallbackQueryHandler(self.role_handler, pattern='^(listener|speaker|main_menu)$'))
-        self.dispatcher.add_handler(CallbackQueryHandler(self.listener_handler, pattern='^(ask_question|show_schedule)$'))
-        self.dispatcher.add_handler(CallbackQueryHandler(self.speaker_handler, pattern='^(view_questions|start_presentation|end_presentation)$'))
-        self.dispatcher.add_handler(CallbackQueryHandler(self.new_speaker_handler, pattern='^new_speaker$'))
+        self.dispatcher.add_handler(CallbackQueryHandler(self.role_handler,
+                                                         pattern='^(listener|speaker|main_menu)$'))
+        self.dispatcher.add_handler(CallbackQueryHandler(self.listener_handler,
+                                                         pattern='^(ask_question|show_schedule)$'))
+        self.dispatcher.add_handler(CallbackQueryHandler(self.speaker_handler,
+                                                         pattern='^(view_questions|start_presentation|end_presentation)$'))
+        self.dispatcher.add_handler(CallbackQueryHandler(self.new_speaker_handler,
+                                                         pattern='^new_speaker$'))
         self.dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, self.handle_message))
 
     def start(self, update: Update, context: CallbackContext) -> None:
