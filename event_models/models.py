@@ -24,6 +24,7 @@ class Event(models.Model):
     speakers = models.ManyToManyField(Speaker, verbose_name="Спикеры", related_name="events")
     created_on = models.DateTimeField(auto_now_add=True)
     updated_on = models.DateTimeField(auto_now=True)
+    participants = models.ManyToManyField('Listener', verbose_name="Участники", related_name="events", blank=True)
 
     def __str__(self):
         return self.title
@@ -35,6 +36,7 @@ class Question(models.Model):
     answer = models.TextField("Ответ", blank=True)
     created_on = models.DateTimeField(auto_now_add=True)
     updated_on = models.DateTimeField(auto_now=True)
+    telegram_id = models.CharField("Telegram ID слушателя", max_length=50, null=True, blank=True)  # Добавлено поле для ID слушателя
 
     def __str__(self):
         return f"Question to {self.speaker.full_name}"
@@ -49,8 +51,6 @@ class NewSpeaker(models.Model):
 
     def __str__(self):
         return self.full_name
-
-from django.db import models
 
 class Listener(models.Model):
     """Слушатель"""

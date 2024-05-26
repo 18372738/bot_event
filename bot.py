@@ -152,9 +152,26 @@ class TelegramBot:
         questions = Question.objects.filter(speaker=speaker, approved=True)
         if questions.exists():
             question_list = "\n".join([f"{q.question}" for q in questions])
-            query.message.reply_text(f'Ваши вопросы:\n{question_list}')
+            query.message.reply_text(f'Ваши вопросы:\n{question_list}\n\nВведите номер вопроса и ответ через тире, например "1 - ваш ответ"')
+            query.message.reply_text('Введите номер вопроса и ответ через тире, например "1 - ваш ответ"')
+            self.dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, self.answer_question))
         else:
             query.message.reply_text('У вас пока нет вопросов.')
+
+    def answer_question(self, update: Update, context: CallbackContext) -> None:
+        message_text = update.message.text
+        if "-" in message_text:
+            question_id, answer = message_text.split(" - ", 1)
+            question = Question.objects.filter(id=question_id.strip(), speaker__telegram_id=update.effective_user.id).first()
+            if question:
+                question.answer = answer
+                question.save()
+                context.bot.send_message(chat_id=question.telegram_id, text=f"Ответ на ваш вопрос: {answer}")
+                update.message.reply_text("Ответ отправлен слушателю.")
+            else:
+                update.message.reply_text("Вопрос не найден.")
+        else:
+            update.message.reply_text("Неправильный формат. Пожалуйста, используйте формат 'номер вопроса - ваш ответ'.")
 
     def start_presentation(self, query, speaker) -> None:
         speaker.is_active = True
@@ -191,7 +208,7 @@ class TelegramBot:
         if not active_speaker:
             update.message.reply_text('Сейчас нет активного выступления.')
         else:
-            Question.objects.create(speaker=active_speaker, question=question_text, approved=False)
+            Question.objects.create(speaker=active_speaker, question=question_text, telegram_id=update.effective_user.id, approved=False)
             update.message.reply_text(f'Ваш вопрос отправлен спикеру.')
         context.user_data['awaiting_question'] = False
 
