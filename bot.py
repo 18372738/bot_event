@@ -1,3 +1,4 @@
+import sys
 import os
 import django
 import logging
@@ -14,6 +15,10 @@ django.setup()
 from event_models.models import Event, Speaker, Question, NewSpeaker
 
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+
+# Set the default encoding to UTF-8
+sys.stdout.reconfigure(encoding='utf-8')
+sys.stderr.reconfigure(encoding='utf-8')
 
 class TelegramBot:
     def __init__(self):
@@ -91,9 +96,13 @@ class TelegramBot:
             query.message.reply_text('Введите ваш вопрос:')
             context.user_data['awaiting_question'] = True
         elif query.data == 'show_schedule':
+            self.logger.info("Fetching event schedule...")
             events = Event.objects.all()
-            schedule = "\n".join([f"{event.title} - {event.start_at.strftime('%Y-%м-%d %H:%М')}" for event in events])
-            query.message.reply_text(f'Программа мероприятия:\n{schedule}')
+            if events.exists():
+                schedule = "\n".join([f"{event.title} - {event.start_at.strftime('%Y-%m-%d %H:%M')}" for event in events])
+                query.message.reply_text(f'Программа мероприятия:\n{schedule}')
+            else:
+                query.message.reply_text('Пока нет запланированных мероприятий.')
 
     def speaker_handler(self, update: Update, context: CallbackContext) -> None:
         query = update.callback_query
