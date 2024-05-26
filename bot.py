@@ -74,6 +74,7 @@ class TelegramBot:
         if speaker:
             keyboard = [
                 [InlineKeyboardButton("Посмотреть вопросы", callback_data='view_questions')],
+                [InlineKeyboardButton("Программа мероприятия", callback_data='show_schedule')],
                 [InlineKeyboardButton("Начать выступление", callback_data='start_presentation')],
                 [InlineKeyboardButton("Закончить выступление", callback_data='end_presentation')],
                 [InlineKeyboardButton("Главное меню", callback_data='main_menu')]
@@ -116,6 +117,14 @@ class TelegramBot:
             self.start_presentation(query, speaker)
         elif query.data == 'end_presentation' and speaker:
             self.end_presentation(query, speaker)
+        elif query.data == 'show_schedule':
+            self.logger.info("Fetching event schedule...")
+            events = Event.objects.all()
+            if events.exists():
+                schedule = "\n".join([f"{event.title} - {event.start_at.strftime('%Y-%m-%d %H:%M')}" for event in events])
+                query.message.reply_text(f'Программа мероприятия:\n{schedule}')
+            else:
+                query.message.reply_text('Пока нет запланированных мероприятий.')    
 
     def view_questions(self, query, speaker) -> None:
         questions = Question.objects.filter(speaker=speaker)
