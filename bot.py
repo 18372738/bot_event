@@ -6,19 +6,22 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, CallbackContext
 from django.utils import timezone
 from dotenv import load_dotenv
+from apscheduler.schedulers.background import BackgroundScheduler
+import pytz
 
 load_dotenv()
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'event.settings')
+
 django.setup()
 
 from event_models.models import Event, Speaker, Question, NewSpeaker
 
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 
-# Set the default encoding to UTF-8
-sys.stdout.reconfigure(encoding='utf-8')
-sys.stderr.reconfigure(encoding='utf-8')
+# Установка кодировки по умолчанию
+sys.stdout = open(sys.stdout.fileno(), mode='w', encoding='utf-8', buffering=1)
+sys.stderr = open(sys.stderr.fileno(), mode='w', encoding='utf-8', buffering=1)
 
 class TelegramBot:
     def __init__(self):
@@ -32,9 +35,16 @@ class TelegramBot:
         self.dispatcher.add_handler(CommandHandler("start", self.start))
         self.dispatcher.add_handler(CallbackQueryHandler(self.role_handler, pattern='^(listener|speaker|main_menu)$'))
         self.dispatcher.add_handler(CallbackQueryHandler(self.listener_handler, pattern='^(ask_question|show_schedule)$'))
-        self.dispatcher.add_handler(CallbackQueryHandler(self.speaker_handler, pattern='^(view_questions|start_presentation|end_presentation)$'))
+        self.dispatcher.add_handler(CallbackQueryHandler(self.speaker_handler, pattern='^(view_questions|start_presentation|end_presentation|show_schedule)$'))
         self.dispatcher.add_handler(CallbackQueryHandler(self.new_speaker_handler, pattern='^new_speaker$'))
         self.dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, self.handle_message))
+
+        # Планировщик для напоминаний
+        self.scheduler = BackgroundScheduler()
+        # Указание часового пояса для планировщика задач
+        tz = pytz.timezone('Europe/Moscow')
+        self.scheduler.add_job(self.send_event_reminder, 'cron', hour=9, minute=0, timezone=tz)
+        self.scheduler.start()
 
     def start(self, update: Update, context: CallbackContext) -> None:
         self.show_main_menu(update.message)
@@ -124,10 +134,10 @@ class TelegramBot:
                 schedule = "\n".join([f"{event.title} - {event.start_at.strftime('%Y-%m-%d %H:%M')}" for event in events])
                 query.message.reply_text(f'Программа мероприятия:\n{schedule}')
             else:
-                query.message.reply_text('Пока нет запланированных мероприятий.')    
+                query.message.reply_text('Пока нет запланированных мероприятий.')
 
     def view_questions(self, query, speaker) -> None:
-        questions = Question.objects.filter(speaker=speaker)
+        questions = Question.objects.filter(speaker=speaker, approved=True)
         if questions.exists():
             question_list = "\n".join([f"{q.question}" for q in questions])
             query.message.reply_text(f'Ваши вопросы:\n{question_list}')
@@ -164,8 +174,8 @@ class TelegramBot:
         if not self.current_speaker:
             update.message.reply_text('Сейчас нет активного выступления.')
         else:
-            Question.objects.create(speaker=self.current_speaker, question=question_text)
-            update.message.reply_text(f'Ваш вопрос отправлен спикеру {self.current_speaker.full_name}.')
+            Question.objects.create(speaker=self.current_speaker, question=question_text, approved=False)
+            update.message.reply_text(f'Ваш вопрос отправлен спикеру.')
         context.user_data['awaiting_question'] = False
 
     def process_full_name(self, update: Update, context: CallbackContext) -> None:
@@ -190,6 +200,17 @@ class TelegramBot:
         NewSpeaker.objects.create(full_name=full_name, topic=topic, phone_number=phone_number, telegram_id=telegram_id)
         update.message.reply_text('Спасибо за вашу заявку. Организатор свяжется с вами.')
         context.user_data['awaiting_phone_number'] = False
+
+    def approve_question(self, question_id: int) -> None:
+        question = Question.objects.get(id=question_id)
+        question.approved = True
+        question.save()
+
+    def send_event_reminder(self):
+        events = Event.objects.filter(start_at__date=timezone.now().date())
+        for event in events:
+            for participant in event.participants.all():
+                self.updater.bot.send_message(chat_id=participant.telegram_id, text=f'Сегодня в {event.start_at.strftime("%H:%M")} начнется {event.title}')
 
     def run(self) -> None:
         self.updater.start_polling()
