@@ -87,7 +87,7 @@ class TelegramBot:
         speaker_id = query.from_user.id
         speaker = Speaker.objects.filter(telegram_id=speaker_id).first()
         if speaker:
-            current_event = Event.objects.filter(start_at__date=timezone.now().date(), speakers=speaker).first()
+            current_event = Event.objects.filter(start_at__gte=timezone.now(), speakers=speaker).first()
             now = timezone.now()
             if current_event:
                 keyboard = [
@@ -120,7 +120,8 @@ class TelegramBot:
             context.user_data['awaiting_question'] = True
         elif query.data == 'show_schedule':
             self.logger.info("Fetching event schedule...")
-            events = Event.objects.all()
+            now = timezone.now()
+            events = Event.objects.filter(start_at__gte=now)
             if events.exists():
                 schedule = "\n".join([f"{event.title} - {event.start_at.strftime('%Y-%m-%d %H:%M')}" for event in events])
                 query.message.reply_text(f'Программа мероприятия:\n{schedule}')
@@ -141,7 +142,8 @@ class TelegramBot:
             self.end_presentation(query, speaker)
         elif query.data == 'show_schedule':
             self.logger.info("Fetching event schedule...")
-            events = Event.objects.all()
+            now = timezone.now()
+            events = Event.objects.filter(start_at__gte=now)
             if events.exists():
                 schedule = "\n".join([f"{event.title} - {event.start_at.strftime('%Y-%m-%d %H:%M')}" for event in events])
                 query.message.reply_text(f'Программа мероприятия:\n{schedule}')
@@ -151,9 +153,8 @@ class TelegramBot:
     def view_questions(self, query, speaker) -> None:
         questions = Question.objects.filter(speaker=speaker, approved=True)
         if questions.exists():
-            question_list = "\n".join([f"{q.question}" for q in questions])
+            question_list = "\n".join([f"{q.id}. {q.question}" for q in questions])
             query.message.reply_text(f'Ваши вопросы:\n{question_list}\n\nВведите номер вопроса и ответ через тире, например "1 - ваш ответ"')
-            query.message.reply_text('Введите номер вопроса и ответ через тире, например "1 - ваш ответ"')
             self.dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, self.answer_question))
         else:
             query.message.reply_text('У вас пока нет вопросов.')
