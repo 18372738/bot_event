@@ -1,4 +1,6 @@
 Django~=3.2.10
 python-telegram-bot==13.5
 python-dotenv==1.0.1
-urllib3
+apscheduler==3.6.3
+pytz==2024.1
+urllib3==2.2.1
