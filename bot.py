@@ -22,11 +22,9 @@ class TelegramBot:
         self.dispatcher = self.updater.dispatcher
         self.current_speaker = None
 
-        # Настройка логирования
         logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
         self.logger = logging.getLogger(__name__)
 
-        # Register handlers
         self.dispatcher.add_handler(CommandHandler("start", self.start))
         self.dispatcher.add_handler(CallbackQueryHandler(self.role_handler,
                                                          pattern='^(listener|speaker|main_menu)$'))
