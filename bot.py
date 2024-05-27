@@ -85,6 +85,8 @@ class TelegramBot:
             [InlineKeyboardButton("Главное меню", callback_data='main_menu')]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
+        if query.message.reply_markup and query.message.reply_markup.inline_keyboard == reply_markup.inline_keyboard:
+            return
         query.edit_message_reply_markup(reply_markup=reply_markup)
 
     def show_speaker_menu(self, query) -> None:
@@ -106,6 +108,8 @@ class TelegramBot:
 
                 keyboard.append([InlineKeyboardButton("Главное меню", callback_data='main_menu')])
                 reply_markup = InlineKeyboardMarkup(keyboard)
+                if query.message.reply_markup and query.message.reply_markup.inline_keyboard == reply_markup.inline_keyboard:
+                    return
                 query.edit_message_reply_markup(reply_markup=reply_markup)
                 query.message.reply_text(f'Добро пожаловать, {speaker.full_name}! Выберите действие:',
                                          reply_markup=reply_markup)
@@ -117,6 +121,8 @@ class TelegramBot:
                 [InlineKeyboardButton("Главное меню", callback_data='main_menu')]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
+            if query.message.reply_markup and query.message.reply_markup.inline_keyboard == reply_markup.inline_keyboard:
+                return
             query.edit_message_reply_markup(reply_markup=reply_markup)
             query.message.reply_text(
                 'Ваш ID не зарегистрирован как спикер. Пожалуйста, свяжитесь с организатором или подайте заявку:',
@@ -155,6 +161,8 @@ class TelegramBot:
             [InlineKeyboardButton("Главное меню", callback_data='main_menu')]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
+        if query.message.reply_markup and query.message.reply_markup.inline_keyboard == reply_markup.inline_keyboard:
+            return
         query.edit_message_reply_markup(reply_markup=reply_markup)
 
     def speaker_handler(self, update: Update, context: CallbackContext) -> None:
@@ -178,7 +186,7 @@ class TelegramBot:
             events = Event.objects.filter(Q(start_at__lte=now, end_at__gte=now) | Q(start_at__gte=now))
             if events.exists():
                 schedule = "\n".join([
-                    f"*** {event.title} - {event.start_at.strftime('%Y-%m-%d %H:%M')} to {event.end_at.strftime('%Y-%m-%d %H:%M')} ***" if event.start_at <= now <= event.end_at else f"{event.title} - {event.start_at.strftime('%Y-%м-%d %H:%М')} to {event.end_at.strftime('%Y-%м-%д %H:%М')}"
+                    f"*** {event.title} - {event.start_at.strftime('%Y-%m-%d %H:%M')} to {event.end_at.strftime('%Y-%m-%d %H-%M')} ***" if event.start_at <= now <= event.end_at else f"{event.title} - {event.start_at.strftime('%Y-%m-%d %H-%М')} to {event.end_at.strftime('%Y-%m-%d %H-%М')}"
                     for event in events
                 ])
                 query.message.reply_text(f'Программа мероприятия:\n{schedule}', parse_mode='Markdown')
@@ -198,6 +206,8 @@ class TelegramBot:
 
         keyboard.append([InlineKeyboardButton("Главное меню", callback_data='main_menu')])
         reply_markup = InlineKeyboardMarkup(keyboard)
+        if query.message.reply_markup and query.message.reply_markup.inline_keyboard == reply_markup.inline_keyboard:
+            return
         query.edit_message_reply_markup(reply_markup=reply_markup)
 
     def view_questions(self, query, speaker) -> None:
@@ -243,6 +253,8 @@ class TelegramBot:
                 [InlineKeyboardButton("Главное меню", callback_data='main_menu')]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
+            if query.message.reply_markup and query.message.reply_markup.inline_keyboard == reply_markup.inline_keyboard:
+                return
             query.edit_message_reply_markup(reply_markup=reply_markup)
             query.message.reply_text(f'{speaker.full_name}, вы начали своё выступление.')
 
@@ -261,6 +273,8 @@ class TelegramBot:
                 [InlineKeyboardButton("Главное меню", callback_data='main_menu')]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
+            if query.message.reply_markup and query.message.reply_markup.inline_keyboard == reply_markup.inline_keyboard:
+                return
             query.edit_message_reply_markup(reply_markup=reply_markup)
             query.message.reply_text(f'{speaker.full_name}, вы закончили своё выступление.')
 
