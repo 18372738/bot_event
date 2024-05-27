@@ -87,7 +87,7 @@ python bot.py
 - [bot.py](https://github.com/18372738/bot_event/blob/main/bot.py)
 - [models.py](https://github.com/18372738/bot_event/blob/main/event_models/models.py)
 - [signals.py](https://github.com/18372738/bot_event/blob/main/event_models/signals.py)
-- [forms.py](https://github.com/18372738/bot_event/blob/main/event_models/signals.py)
+- [forms.py](https://github.com/18372738/bot_event/blob/main/event_models/forms.py)
 ### Цели проекта
 Проект написан в образовательных целях.
 
