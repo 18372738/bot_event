@@ -69,7 +69,7 @@ class TelegramBot:
             [InlineKeyboardButton("Организатор", url='http://127.0.0.1:8000/admin')]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        message.reply_text('Привет! Выберите свою роль:', reply_markup=reply_markup)
+        message.reply_text('Привет! Я бот PythonMeetup. Я помогу тебе задать вопросы спикерам, посмотреть программу наших мероприятий и подписаться на уведомления о новых событиях. Пожалуйста, выбери свою роль:', reply_markup=reply_markup)
 
     def role_handler(self, update: Update, context: CallbackContext) -> None:
         query = update.callback_query
@@ -132,6 +132,7 @@ class TelegramBot:
         if query.data == 'ask_question':
             query.message.reply_text('Введите ваш вопрос:')
             context.user_data['awaiting_question'] = True
+            self.update_listener_menu(query.message)
         elif query.data == 'show_schedule':
             self.logger.info("Fetching event schedule...")
             now = timezone.now()
@@ -144,8 +145,20 @@ class TelegramBot:
                 query.message.reply_text(f'Программа мероприятия:\n{schedule}', parse_mode='Markdown')
             else:
                 query.message.reply_text('Пока нет запланированных мероприятий.')
+            self.update_listener_menu(query.message)
         elif query.data == 'subscribe':
             self.subscribe_handler(update, context)
+            self.update_listener_menu(query.message)
+
+    def update_listener_menu(self, message) -> None:
+        keyboard = [
+            [InlineKeyboardButton("Задать вопрос", callback_data='ask_question')],
+            [InlineKeyboardButton("Программа мероприятия", callback_data='show_schedule')],
+            [InlineKeyboardButton("Подписаться на новые мероприятия", callback_data='subscribe')],
+            [InlineKeyboardButton("Главное меню", callback_data='main_menu')]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        message.reply_text('Выберите действие:', reply_markup=reply_markup)
 
     def speaker_handler(self, update: Update, context: CallbackContext) -> None:
         query = update.callback_query
@@ -155,10 +168,13 @@ class TelegramBot:
 
         if query.data == 'view_questions' and speaker:
             self.view_questions(query, speaker)
+            self.update_speaker_menu(query.message, speaker)
         elif query.data == 'start_presentation' and speaker:
             self.start_presentation(query, context)
+            self.update_speaker_menu(query.message, speaker)
         elif query.data == 'end_presentation' and speaker:
             self.end_presentation(query, context)
+            self.update_speaker_menu(query.message, speaker)
         elif query.data == 'show_schedule':
             self.logger.info("Fetching event schedule...")
             now = timezone.now()
@@ -171,6 +187,21 @@ class TelegramBot:
                 query.message.reply_text(f'Программа мероприятия:\n{schedule}', parse_mode='Markdown')
             else:
                 query.message.reply_text('Пока нет запланированных мероприятий.')
+            self.update_speaker_menu(query.message, speaker)
+
+    def update_speaker_menu(self, message, speaker) -> None:
+        keyboard = [
+            [InlineKeyboardButton("Посмотреть вопросы", callback_data='view_questions')],
+            [InlineKeyboardButton("Программа мероприятия", callback_data='show_schedule')]
+        ]
+        if speaker.is_active:
+            keyboard.append([InlineKeyboardButton("Закончить выступление", callback_data='end_presentation')])
+        else:
+            keyboard.append([InlineKeyboardButton("Начать выступление", callback_data='start_presentation')])
+
+        keyboard.append([InlineKeyboardButton("Главное меню", callback_data='main_menu')])
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        message.reply_text('Выберите действие:', reply_markup=reply_markup)
 
     def view_questions(self, query, speaker) -> None:
         questions = Question.objects.filter(speaker=speaker)
