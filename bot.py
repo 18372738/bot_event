@@ -20,6 +20,7 @@ from event_models.models import Event, Speaker, Question, NewSpeaker, Listener
 
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 
+
 class TelegramBot:
     def __init__(self):
         self.updater = Updater(TELEGRAM_BOT_TOKEN, use_context=True, workers=8,
@@ -70,13 +71,13 @@ class TelegramBot:
         query.answer()
 
         if query.data == 'listener':
-            self.show_listener_menu(query.message)
+            self.show_listener_menu(query)
         elif query.data == 'speaker':
             self.show_speaker_menu(query)
         elif query.data == 'main_menu':
             self.show_main_menu(query.message)
 
-    def show_listener_menu(self, message) -> None:
+    def show_listener_menu(self, query) -> None:
         keyboard = [
             [InlineKeyboardButton("Задать вопрос", callback_data='ask_question')],
             [InlineKeyboardButton("Программа мероприятия", callback_data='show_schedule')],
@@ -84,7 +85,7 @@ class TelegramBot:
             [InlineKeyboardButton("Главное меню", callback_data='main_menu')]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        message.reply_text('Выберите действие:', reply_markup=reply_markup)
+        query.edit_message_reply_markup(reply_markup=reply_markup)
 
     def show_speaker_menu(self, query) -> None:
         speaker_id = query.from_user.id
@@ -105,6 +106,7 @@ class TelegramBot:
 
                 keyboard.append([InlineKeyboardButton("Главное меню", callback_data='main_menu')])
                 reply_markup = InlineKeyboardMarkup(keyboard)
+                query.edit_message_reply_markup(reply_markup=reply_markup)
                 query.message.reply_text(f'Добро пожаловать, {speaker.full_name}! Выберите действие:',
                                          reply_markup=reply_markup)
             else:
@@ -115,6 +117,7 @@ class TelegramBot:
                 [InlineKeyboardButton("Главное меню", callback_data='main_menu')]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
+            query.edit_message_reply_markup(reply_markup=reply_markup)
             query.message.reply_text(
                 'Ваш ID не зарегистрирован как спикер. Пожалуйста, свяжитесь с организатором или подайте заявку:',
                 reply_markup=reply_markup)
@@ -126,25 +129,25 @@ class TelegramBot:
         if query.data == 'ask_question':
             query.message.reply_text('Введите ваш вопрос:')
             context.user_data['awaiting_question'] = True
-            self.update_listener_menu(query.message)
+            self.update_listener_menu(query)
         elif query.data == 'show_schedule':
             self.logger.info("Fetching event schedule...")
             now = timezone.now()
             events = Event.objects.filter(Q(start_at__lte=now, end_at__gte=now) | Q(start_at__gte=now))
             if events.exists():
                 schedule = "\n".join([
-                    f"*** {event.title} - {event.start_at.strftime('%Y-%m-%d %H:%M')} до {event.end_at.strftime('%Y-%м-%д %H:%М')} ***" if event.start_at <= now <= event.end_at else f"{event.title} - {event.start_at.strftime('%Y-%м-%д %H:%М')} до {event.end_at.strftime('%Y-%м-%д %H:%М')}"
+                    f"*** {event.title} - {event.start_at.strftime('%Y-%m-%d %H:%M')} to {event.end_at.strftime('%Y-%m-%d %H:%M')} ***" if event.start_at <= now <= event.end_at else f"{event.title} - {event.start_at.strftime('%Y-%m-%d %H:%M')} to {event.end_at.strftime('%Y-%m-%d %H:%M')}"
                     for event in events
                 ])
                 query.message.reply_text(f'Программа мероприятия:\n{schedule}', parse_mode='Markdown')
             else:
                 query.message.reply_text('Пока нет запланированных мероприятий.')
-            self.update_listener_menu(query.message)
+            self.update_listener_menu(query)
         elif query.data == 'subscribe':
             self.subscribe_handler(update, context)
-            self.update_listener_menu(query.message)
+            self.update_listener_menu(query)
 
-    def update_listener_menu(self, message) -> None:
+    def update_listener_menu(self, query) -> None:
         keyboard = [
             [InlineKeyboardButton("Задать вопрос", callback_data='ask_question')],
             [InlineKeyboardButton("Программа мероприятия", callback_data='show_schedule')],
@@ -152,7 +155,7 @@ class TelegramBot:
             [InlineKeyboardButton("Главное меню", callback_data='main_menu')]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        message.reply_text('Выберите действие:', reply_markup=reply_markup)
+        query.edit_message_reply_markup(reply_markup=reply_markup)
 
     def speaker_handler(self, update: Update, context: CallbackContext) -> None:
         query = update.callback_query
@@ -162,28 +165,28 @@ class TelegramBot:
 
         if query.data == 'view_questions' and speaker:
             self.view_questions(query, speaker)
-            self.update_speaker_menu(query.message, speaker)
+            self.update_speaker_menu(query, speaker)
         elif query.data == 'start_presentation' and speaker:
             self.start_presentation(query, context)
-            self.update_speaker_menu(query.message, speaker)
+            self.update_speaker_menu(query, speaker)
         elif query.data == 'end_presentation' and speaker:
             self.end_presentation(query, context)
-            self.update_speaker_menu(query.message, speaker)
+            self.update_speaker_menu(query, speaker)
         elif query.data == 'show_schedule':
             self.logger.info("Fetching event schedule...")
             now = timezone.now()
             events = Event.objects.filter(Q(start_at__lte=now, end_at__gte=now) | Q(start_at__gte=now))
             if events.exists():
                 schedule = "\n".join([
-                    f"*** {event.title} - {event.start_at.strftime('%Y-%м-%д %H:%М')} до {event.end_at.strftime('%Y-%м-%д %H:%М')} ***" if event.start_at <= now <= event.end_at else f"{event.title} - {event.start_at.strftime('%Y-%м-%д %H:%М')} до {event.end_at.strftime('%Y-%м-%д %H:%М')}"
+                    f"*** {event.title} - {event.start_at.strftime('%Y-%m-%d %H:%M')} to {event.end_at.strftime('%Y-%m-%d %H:%M')} ***" if event.start_at <= now <= event.end_at else f"{event.title} - {event.start_at.strftime('%Y-%м-%d %H:%М')} to {event.end_at.strftime('%Y-%м-%д %H:%М')}"
                     for event in events
                 ])
                 query.message.reply_text(f'Программа мероприятия:\n{schedule}', parse_mode='Markdown')
             else:
                 query.message.reply_text('Пока нет запланированных мероприятий.')
-            self.update_speaker_menu(query.message, speaker)
+            self.update_speaker_menu(query, speaker)
 
-    def update_speaker_menu(self, message, speaker) -> None:
+    def update_speaker_menu(self, query, speaker) -> None:
         keyboard = [
             [InlineKeyboardButton("Посмотреть вопросы", callback_data='view_questions')],
             [InlineKeyboardButton("Программа мероприятия", callback_data='show_schedule')]
@@ -195,7 +198,7 @@ class TelegramBot:
 
         keyboard.append([InlineKeyboardButton("Главное меню", callback_data='main_menu')])
         reply_markup = InlineKeyboardMarkup(keyboard)
-        message.reply_text('Выберите действие:', reply_markup=reply_markup)
+        query.edit_message_reply_markup(reply_markup=reply_markup)
 
     def view_questions(self, query, speaker) -> None:
         questions = Question.objects.filter(speaker=speaker)
@@ -209,20 +212,22 @@ class TelegramBot:
 
     def answer_question(self, update: Update, context: CallbackContext) -> None:
         message_text = update.message.text
+        self.logger.info(f"Received answer: {message_text}")
         if "-" in message_text:
             question_id, answer = message_text.split(" - ", 1)
-            question = Question.objects.filter(id=question_id.strip(),
-                                               speaker__telegram_id=update.effective_user.id).first()
+            question = Question.objects.filter(id=question_id.strip(), speaker__telegram_id=update.effective_user.id).first()
             if question:
                 question.answer = answer
                 question.save()
+                self.logger.info(f"Answer saved for question {question_id}")
                 context.bot.send_message(chat_id=question.telegram_id, text=f"Ответ на ваш вопрос: {answer}")
                 update.message.reply_text("Ответ отправлен слушателю.")
             else:
+                self.logger.error(f"Question with id {question_id} not found for speaker {update.effective_user.id}")
                 update.message.reply_text("Вопрос не найден.")
         else:
-            update.message.reply_text(
-                "Неправильный формат. Пожалуйста, используйте формат 'номер вопроса - ваш ответ'.")
+            self.logger.error(f"Invalid answer format: {message_text}")
+            update.message.reply_text("Неправильный формат. Пожалуйста, используйте формат 'номер вопроса - ваш ответ'.")
 
     def start_presentation(self, query: CallbackQuery, context: CallbackContext) -> None:
         speaker_id = query.from_user.id
