@@ -15,6 +15,7 @@ class Speaker(models.Model):
     def __str__(self):
         return self.full_name
 
+
 class Event(models.Model):
     """Мероприятие"""
     title = models.CharField("Название", max_length=200)
@@ -29,6 +30,7 @@ class Event(models.Model):
     def __str__(self):
         return self.title
 
+
 class Question(models.Model):
     """Вопрос"""
     speaker = models.ForeignKey(Speaker, verbose_name="Спикер", on_delete=models.CASCADE, related_name="questions")
@@ -36,7 +38,7 @@ class Question(models.Model):
     answer = models.TextField("Ответ", blank=True)
     created_on = models.DateTimeField(auto_now_add=True)
     updated_on = models.DateTimeField(auto_now=True)
-    telegram_id = models.CharField("Telegram ID слушателя", max_length=50, null=True, blank=True)  # Добавлено поле для ID слушателя
+    telegram_id = models.CharField("Telegram ID слушателя", max_length=50, null=True, blank=True)
 
     def __str__(self):
         return f"Question to {self.speaker.full_name}"
@@ -56,6 +58,7 @@ class Listener(models.Model):
     """Слушатель"""
     telegram_id = models.CharField("Telegram ID", max_length=50, unique=True)
     registered_on = models.DateTimeField(auto_now_add=True)
+    subscribed = models.BooleanField("Подписан", default=False)
 
     def __str__(self):
         return f"Listener {self.telegram_id}"
