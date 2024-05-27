@@ -20,11 +20,6 @@ from event_models.models import Event, Speaker, Question, NewSpeaker, Listener
 
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 
-# Установка кодировки по умолчанию
-sys.stdout = open(sys.stdout.fileno(), mode='w', encoding='utf-8', buffering=1)
-sys.stderr = open(sys.stderr.fileno(), mode='w', encoding='utf-8', buffering=1)
-
-
 class TelegramBot:
     def __init__(self):
         self.updater = Updater(TELEGRAM_BOT_TOKEN, use_context=True, workers=8,
@@ -65,7 +60,6 @@ class TelegramBot:
         keyboard = [
             [InlineKeyboardButton("Слушатель", callback_data='listener')],
             [InlineKeyboardButton("Спикер", callback_data='speaker')],
-            [InlineKeyboardButton("Донат", url='https://donation.url')],
             [InlineKeyboardButton("Организатор", url='http://127.0.0.1:8000/admin')]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -139,7 +133,7 @@ class TelegramBot:
             events = Event.objects.filter(Q(start_at__lte=now, end_at__gte=now) | Q(start_at__gte=now))
             if events.exists():
                 schedule = "\n".join([
-                    f"*** {event.title} - {event.start_at.strftime('%Y-%m-%d %H:%M')} до {event.end_at.strftime('%Y-%m-%d %H:%M')} ***" if event.start_at <= now <= event.end_at else f"{event.title} - {event.start_at.strftime('%Y-%m-%d %H:%M')} до {event.end_at.strftime('%Y-%m-%d %H:%M')}"
+                    f"*** {event.title} - {event.start_at.strftime('%Y-%m-%d %H:%M')} до {event.end_at.strftime('%Y-%м-%д %H:%М')} ***" if event.start_at <= now <= event.end_at else f"{event.title} - {event.start_at.strftime('%Y-%м-%д %H:%М')} до {event.end_at.strftime('%Y-%м-%д %H:%М')}"
                     for event in events
                 ])
                 query.message.reply_text(f'Программа мероприятия:\n{schedule}', parse_mode='Markdown')
@@ -181,7 +175,7 @@ class TelegramBot:
             events = Event.objects.filter(Q(start_at__lte=now, end_at__gte=now) | Q(start_at__gte=now))
             if events.exists():
                 schedule = "\n".join([
-                    f"*** {event.title} - {event.start_at.strftime('%Y-%m-%d %H:%M')} до {event.end_at.strftime('%Y-%m-%d %H:%M')} ***" if event.start_at <= now <= event.end_at else f"{event.title} - {event.start_at.strftime('%Y-%m-%d %H:%M')} до {event.end_at.strftime('%Y-%m-%d %H:%M')}"
+                    f"*** {event.title} - {event.start_at.strftime('%Y-%м-%д %H:%М')} до {event.end_at.strftime('%Y-%м-%д %H:%М')} ***" if event.start_at <= now <= event.end_at else f"{event.title} - {event.start_at.strftime('%Y-%м-%д %H:%М')} до {event.end_at.strftime('%Y-%м-%д %H:%М')}"
                     for event in events
                 ])
                 query.message.reply_text(f'Программа мероприятия:\n{schedule}', parse_mode='Markdown')
