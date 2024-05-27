@@ -38,7 +38,7 @@ class TelegramBot:
         self.dispatcher.add_handler(
             CallbackQueryHandler(self.listener_handler, pattern='^(ask_question|show_schedule|subscribe)$'))
         self.dispatcher.add_handler(CallbackQueryHandler(self.speaker_handler,
-                                                         pattern='^(view_questions|start_presentation|end_presentation|show_schedule)$'))
+                                                         pattern='^(view_questions|start_presentation|end_presentation)$'))
         self.dispatcher.add_handler(CallbackQueryHandler(self.new_speaker_handler, pattern='^new_speaker$'))
         self.dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, self.handle_message))
 
@@ -97,7 +97,6 @@ class TelegramBot:
             if current_event:
                 keyboard = [
                     [InlineKeyboardButton("Посмотреть вопросы", callback_data='view_questions')],
-                    [InlineKeyboardButton("Программа мероприятия", callback_data='show_schedule')]
                 ]
                 if speaker.start_at <= now <= speaker.end_at and not speaker.is_active:
                     keyboard.append([InlineKeyboardButton("Начать выступление", callback_data='start_presentation')])
@@ -131,7 +130,7 @@ class TelegramBot:
             context.user_data['awaiting_question'] = True
             self.update_listener_menu(query)
         elif query.data == 'show_schedule':
-            self.logger.info("Fetching event schedule...")
+            self.logger.info("Fetching event schedule for listener...")
             now = timezone.now()
             events = Event.objects.filter(Q(start_at__lte=now, end_at__gte=now) | Q(start_at__gte=now))
             if events.exists():
@@ -155,7 +154,8 @@ class TelegramBot:
             [InlineKeyboardButton("Главное меню", callback_data='main_menu')]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        query.edit_message_reply_markup(reply_markup=reply_markup)
+        if query.message.reply_markup != reply_markup:
+            query.edit_message_reply_markup(reply_markup=reply_markup)
 
     def speaker_handler(self, update: Update, context: CallbackContext) -> None:
         query = update.callback_query
@@ -172,24 +172,10 @@ class TelegramBot:
         elif query.data == 'end_presentation' and speaker:
             self.end_presentation(query, context)
             self.update_speaker_menu(query, speaker)
-        elif query.data == 'show_schedule':
-            self.logger.info("Fetching event schedule...")
-            now = timezone.now()
-            events = Event.objects.filter(Q(start_at__lte=now, end_at__gte=now) | Q(start_at__gte=now))
-            if events.exists():
-                schedule = "\n".join([
-                    f"*** {event.title} - {event.start_at.strftime('%Y-%m-%d %H:%M')} to {event.end_at.strftime('%Y-%m-%d %H:%М')} ***" if event.start_at <= now <= event.end_at else f"{event.title} - {event.start_at.strftime('%Y-%m-%d %H:%M')} to {event.end_at.strftime('%Y-%m-%d %H:%M')}"
-                    for event in events
-                ])
-                query.message.reply_text(f'Программа мероприятия:\n{schedule}', parse_mode='Markdown')
-            else:
-                query.message.reply_text('Пока нет запланированных мероприятий.')
-            self.update_speaker_menu(query, speaker)
 
     def update_speaker_menu(self, query, speaker) -> None:
         keyboard = [
             [InlineKeyboardButton("Посмотреть вопросы", callback_data='view_questions')],
-            [InlineKeyboardButton("Программа мероприятия", callback_data='show_schedule')]
         ]
         if speaker.is_active:
             keyboard.append([InlineKeyboardButton("Закончить выступление", callback_data='end_presentation')])
@@ -198,7 +184,8 @@ class TelegramBot:
 
         keyboard.append([InlineKeyboardButton("Главное меню", callback_data='main_menu')])
         reply_markup = InlineKeyboardMarkup(keyboard)
-        query.edit_message_reply_markup(reply_markup=reply_markup)
+        if query.message.reply_markup != reply_markup:
+            query.edit_message_reply_markup(reply_markup=reply_markup)
 
     def view_questions(self, query, speaker) -> None:
         questions = Question.objects.filter(speaker=speaker)
@@ -206,7 +193,9 @@ class TelegramBot:
             question_list = "\n".join([f"{q.id}. {q.question}" for q in questions])
             query.message.reply_text(
                 f'Ваши вопросы:\n{question_list}\n\nВведите номер вопроса и ответ через тире, например "1 - ваш ответ"')
-            self.dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, self.answer_question))
+            # Создаём и добавляем хэндлер для ответов
+            self.answer_question_handler = MessageHandler(Filters.text & ~Filters.command, self.answer_question)
+            self.dispatcher.add_handler(self.answer_question_handler)
         else:
             query.message.reply_text('У вас пока нет вопросов.')
 
@@ -229,6 +218,9 @@ class TelegramBot:
             self.logger.error(f"Invalid answer format: {message_text}")
             update.message.reply_text("Неправильный формат. Пожалуйста, используйте формат 'номер вопроса - ваш ответ'.")
 
+        # Удаляем хэндлер после обработки
+        self.dispatcher.remove_handler(self.answer_question_handler)
+
     def start_presentation(self, query: CallbackQuery, context: CallbackContext) -> None:
         speaker_id = query.from_user.id
         speaker = Speaker.objects.filter(telegram_id=speaker_id).first()
@@ -238,7 +230,6 @@ class TelegramBot:
             self.current_speaker = speaker
             keyboard = [
                 [InlineKeyboardButton("Посмотреть вопросы", callback_data='view_questions')],
-                [InlineKeyboardButton("Программа мероприятия", callback_data='show_schedule')],
                 [InlineKeyboardButton("Закончить выступление", callback_data='end_presentation')],
                 [InlineKeyboardButton("Главное меню", callback_data='main_menu')]
             ]
@@ -256,7 +247,6 @@ class TelegramBot:
                 self.current_speaker = None
             keyboard = [
                 [InlineKeyboardButton("Посмотреть вопросы", callback_data='view_questions')],
-                [InlineKeyboardButton("Программа мероприятия", callback_data='show_schedule')],
                 [InlineKeyboardButton("Начать выступление", callback_data='start_presentation')],
                 [InlineKeyboardButton("Главное меню", callback_data='main_menu')]
             ]
